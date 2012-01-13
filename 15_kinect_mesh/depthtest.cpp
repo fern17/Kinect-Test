@@ -138,6 +138,7 @@ typedef struct Triangle{
 		unsigned int p2idx;
 		Point3_<int> p3;
 		unsigned int p3idx;
+		Point3_<int> normal;
 		int ady1;
 		int ady2;
 		int ady3;
@@ -148,7 +149,14 @@ typedef struct Triangle{
 				out<<"; ("<<p2.x<<','<<p2.y<<','<<p2.z<<')';
 				out<<"; ("<<p3.x<<','<<p3.y<<','<<p3.z<<')';
 				out<<" ["<<ady1<<','<<ady2<<','<<ady3<<']';
+				out<<"NORM=("<<normal.x<<','<<normal.y<<','<<normal.z<<')';
 				out<<std::endl;
+		}
+
+		void calculateNormal(){
+				Point3_<int> v1 = p3-p1;
+				Point3_<int> v2 = p2-p1;
+				normal = v1.cross(v2);
 		}
 }Triangle;
 
@@ -159,6 +167,7 @@ unsigned int getPointIndex(unsigned int i, unsigned int j, Mat &M){
 		return (i*cols)+j;
 }
 
+//reserve space and generate adjacencies
 void initalizeTriangles(Mat &M, std::vector<Triangle> &triangles){
 		int cols = M.cols;
 		int rows = M.rows;
@@ -182,6 +191,7 @@ void initalizeTriangles(Mat &M, std::vector<Triangle> &triangles){
 		}
 }
 
+//calculate triangles vertices
 void generateTriangles(Mat &M, std::vector<Triangle> &triangles){
 	int rows = M.rows;
 	int cols = M.cols;
@@ -196,6 +206,7 @@ void generateTriangles(Mat &M, std::vector<Triangle> &triangles){
 				t->p1 = Point3_<int>(i,j,M.at<unsigned int>(i,j));
 				t->p2 = Point3_<int>(i,j+1,M.at<unsigned int>(i,j+1));
 				t->p3 = Point3_<int>(i+1,j+1,M.at<unsigned int>(i+1,j+1));
+				t->calculateNormal();
 				//t->id = triangleid;
 				triangleid++;
 				//triangles.push_back(t);
@@ -210,6 +221,7 @@ void generateTriangles(Mat &M, std::vector<Triangle> &triangles){
 				t->p1 = Point3_<int>(i,j,M.at<unsigned int>(i,j));
 				t->p2 = Point3_<int>(i+1,j+1,M.at<unsigned int>(i+1,j+1));
 				t->p3 = Point3_<int>(i+1,j,M.at<unsigned int>(i+1,j));
+				t->calculateNormal();
 				//t->id = triangleid;
 				triangleid++;
 				//triangles.push_back(t);
