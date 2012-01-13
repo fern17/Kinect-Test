@@ -139,11 +139,12 @@ typedef struct Triangle{
 		Point3_<int> p3;
 		unsigned int p3idx;
 
-		void print(){
-				std::cout<<"; ("<<p1.x<<','<<p1.y<<','<<p1.z<<')';
-				std::cout<<"; ("<<p2.x<<','<<p2.y<<','<<p2.z<<')';
-				std::cout<<"; ("<<p3.x<<','<<p3.y<<','<<p3.z<<')';
-				std::cout<<std::endl;
+		void print(ofstream &out){
+				out<<"ID="<<id<<" ";
+				out<<"("<<p1.x<<','<<p1.y<<','<<p1.z<<')';
+				out<<"; ("<<p2.x<<','<<p2.y<<','<<p2.z<<')';
+				out<<"; ("<<p3.x<<','<<p3.y<<','<<p3.z<<')';
+				out<<std::endl;
 		}
 }Triangle;
 
@@ -154,42 +155,52 @@ unsigned int getPointIndex(unsigned int i, unsigned int j, Mat &M){
 		return (i*cols)+j;
 }
 
+void initalizeTriangles(Mat &M, std::vector<Triangle> &triangles){
+		int fullsize = (M.rows-1)*(M.cols-1)*2;
+		triangles.resize(fullsize);
+		for(int i = 0; i < fullsize; i++)
+				triangles[i].id = i;
+		
+}
+
 void generateTriangles(Mat &M, std::vector<Triangle> &triangles){
 	int rows = M.rows;
 	int cols = M.cols;
+	//triangles.clear();
     unsigned int triangleid = 0;	
 	for(int i = 0; i < rows-1; i++){
 			for(int j = 0; j < cols-1; j++){
-				Triangle t;
-				t.p1idx = getPointIndex(i,j,M);
-				t.p2idx = getPointIndex(i,j+1,M);
-				t.p3idx = getPointIndex(i+1,j+1,M);
-				t.p1 = Point3_<int>(i,j,M.at<unsigned int>(i,j));
-				t.p2 = Point3_<int>(i,j+1,M.at<unsigned int>(i,j+1));
-				t.p3 = Point3_<int>(i+1,j+1,M.at<unsigned int>(i+1,j+1));
-				t.id = triangleid;
+				Triangle *t = &triangles[triangleid];
+				t->p1idx = getPointIndex(i,j,M);
+				t->p2idx = getPointIndex(i,j+1,M);
+				t->p3idx = getPointIndex(i+1,j+1,M);
+				t->p1 = Point3_<int>(i,j,M.at<unsigned int>(i,j));
+				t->p2 = Point3_<int>(i,j+1,M.at<unsigned int>(i,j+1));
+				t->p3 = Point3_<int>(i+1,j+1,M.at<unsigned int>(i+1,j+1));
+				//t->id = triangleid;
 				triangleid++;
-				triangles.push_back(t);
+				//triangles.push_back(t);
 			}
 	}
 	for(int i = 0; i < rows-1; i++){
 			for(int j = 0; j < cols-1; j++){
-				Triangle t;
-				t.p1idx = getPointIndex(i,j,M);
-				t.p2idx = getPointIndex(i+1,j+1,M);
-				t.p3idx = getPointIndex(i+1,j,M);
-				t.p1 = Point3_<int>(i,j,M.at<unsigned int>(i,j));
-				t.p2 = Point3_<int>(i+1,j+1,M.at<unsigned int>(i+1,j+1));
-				t.p3 = Point3_<int>(i+1,j,M.at<unsigned int>(i+1,j));
-				t.id = triangleid;
+				Triangle *t = &triangles[triangleid];
+				t->p1idx = getPointIndex(i,j,M);
+				t->p2idx = getPointIndex(i+1,j+1,M);
+				t->p3idx = getPointIndex(i+1,j,M);
+				t->p1 = Point3_<int>(i,j,M.at<unsigned int>(i,j));
+				t->p2 = Point3_<int>(i+1,j+1,M.at<unsigned int>(i+1,j+1));
+				t->p3 = Point3_<int>(i+1,j,M.at<unsigned int>(i+1,j));
+				//t->id = triangleid;
 				triangleid++;
-				triangles.push_back(t);
+				//triangles.push_back(t);
 			}
 	}
 }
 
 //Detects hands and starts to follow. Needs callibration between the rgb and
-//the depth camera
+//the depth camera. 
+//NOTE: Needs to call startCleaning before
 void startFollow(Mat & depthf, Mat & rgbMat){
 	int delta = 25;
 	int followx;
@@ -212,6 +223,7 @@ void startFollow(Mat & depthf, Mat & rgbMat){
 	}
 }
 
+//Cleans the depth map, leaving only a small place to render depth data
 void startCleaning(Mat &depthf){
 	int limpieza =  1700000000;
 	for(int i = 0; i < depthf.rows; i++){
@@ -245,6 +257,12 @@ int main(int argc, char **argv) {
 	namedWindow("depth",CV_WINDOW_AUTOSIZE);
 	device.startVideo();
 	device.startDepth();
+	
+	//initalize triangles vector size
+	device.getVideo(rgbMat);
+    device.getDepth(depthMat);
+	depthMat.convertTo(depthf, CV_8UC1, 255.0/2048.0);
+	initalizeTriangles(depthf,triangles);
 	
 	bool iniciarLimpieza = false;
 	bool iniciarSeguimiento = false;
@@ -304,8 +322,11 @@ int main(int argc, char **argv) {
 		}
 		
 		if(k == 116){// tecla t 
-				for(int i = 0; i < triangles.size(); i++){
-						triangles[i].print();
+				ofstream out("triangles.txt");
+				if(out.is_open()){
+					for(int i = 0; i < triangles.size(); i++){
+							triangles[i].print(out);
+					}
 				}
 		}
 
