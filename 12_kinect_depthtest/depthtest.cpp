@@ -114,21 +114,24 @@ int main(int argc, char **argv) {
 	namedWindow("depth",CV_WINDOW_AUTOSIZE);
 	device.startVideo();
 	device.startDepth();
-	int limpieza =  1700000000;
-	int limpieza2 = 1000000000;
+	unsigned int limpieza =  1700000000;
+	bool limpiar = false;
 	int iter = 0;
 	while (!die) {
     	device.getVideo(rgbMat);
     	device.getDepth(depthMat);
         cv::imshow("rgb", rgbMat);
     	depthMat.convertTo(depthf, CV_8UC1, 255.0/2048.0);
-		for(int i = 0; i < depthf.rows; i++){
-				for(int j = 0;j < depthf.cols; j++){
-						unsigned int dep = depthf.at<unsigned int>(i,j);
-						if(dep >= limpieza){
-								depthf.at<unsigned int>(i,j) = -1;
-						}
-				}
+		if(limpiar == true){
+
+			for(int i = 0; i < depthf.rows; i++){
+					for(int j = 0;j < depthf.cols; j++){
+							unsigned int dep = depthf.at<unsigned int>(i,j);
+							if(dep >= limpieza){
+									depthf.at<unsigned int>(i,j) = -1;
+							}
+					}
+			}
 		}
         cv::imshow("depth",depthf);
 		char k = cvWaitKey(5);
