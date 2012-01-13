@@ -133,10 +133,13 @@ void locateClosest(Mat mat, int &x, int &y ){
 typedef struct Triangle{
 		unsigned int id;
 		Point3_<int> p1;
+		unsigned int p1idx;
 		Point3_<int> p2;
+		unsigned int p2idx;
 		Point3_<int> p3;
+		unsigned int p3idx;
+
 		void print(){
-				std::cout<<"TriangleID="<<id;
 				std::cout<<"; ("<<p1.x<<','<<p1.y<<','<<p1.z<<')';
 				std::cout<<"; ("<<p2.x<<','<<p2.y<<','<<p2.z<<')';
 				std::cout<<"; ("<<p3.x<<','<<p3.y<<','<<p3.z<<')';
@@ -144,33 +147,89 @@ typedef struct Triangle{
 		}
 }Triangle;
 
+//Returns the index of the point at position (i,j) of the matrix M.
+unsigned int getPointIndex(unsigned int i, unsigned int j, Mat &M){
+		unsigned int rows = M.rows;
+		unsigned int cols = M.cols;
+		return (i*cols)+j;
+}
+
 void generateTriangles(Mat &M, std::vector<Triangle> &triangles){
 	int rows = M.rows;
 	int cols = M.cols;
+    unsigned int triangleid = 0;	
 	for(int i = 0; i < rows-1; i++){
 			for(int j = 0; j < cols-1; j++){
 				Triangle t;
+				t.p1idx = getPointIndex(i,j,M);
+				t.p2idx = getPointIndex(i,j+1,M);
+				t.p3idx = getPointIndex(i+1,j+1,M);
 				t.p1 = Point3_<int>(i,j,M.at<unsigned int>(i,j));
 				t.p2 = Point3_<int>(i,j+1,M.at<unsigned int>(i,j+1));
 				t.p3 = Point3_<int>(i+1,j+1,M.at<unsigned int>(i+1,j+1));
+				t.id = triangleid;
+				triangleid++;
 				triangles.push_back(t);
 			}
 	}
 	for(int i = 0; i < rows-1; i++){
 			for(int j = 0; j < cols-1; j++){
 				Triangle t;
+				t.p1idx = getPointIndex(i,j,M);
+				t.p2idx = getPointIndex(i+1,j+1,M);
+				t.p3idx = getPointIndex(i+1,j,M);
 				t.p1 = Point3_<int>(i,j,M.at<unsigned int>(i,j));
 				t.p2 = Point3_<int>(i+1,j+1,M.at<unsigned int>(i+1,j+1));
 				t.p3 = Point3_<int>(i+1,j,M.at<unsigned int>(i+1,j));
+				t.id = triangleid;
+				triangleid++;
 				triangles.push_back(t);
 			}
+	}
+}
+
+//Detects hands and starts to follow. Needs callibration between the rgb and
+//the depth camera
+void startFollow(Mat & depthf, Mat & rgbMat){
+	int delta = 25;
+	int followx;
+	int followy;
+	locateClosest(depthf,followx,followy); //detecta lo mas cercano
+//	std::cout<<followx<<' '<<followy<<'\n';
+	int inix = 0;
+	int iniy = 0;
+	int finx = rgbMat.cols;
+	int finy = rgbMat.rows;
+	if(followx-delta > inix) inix = followx-delta;
+	if(followx+delta < finx) finx = followx+delta;
+	if(followy-delta > iniy) iniy = followy-delta;
+	if(followy+delta < finy) finy = followy+delta;
+	std::cout<<inix<<' '<<finx<<' '<<iniy<<' '<<finy<<std::endl;		
+	for(int i = iniy; i < finy ; i++){
+			for(int j = inix; j < finx; j++){
+				rgbMat.at<unsigned int>(i,j) = 25; //cambio color
+			}
+	}
+}
+
+void startCleaning(Mat &depthf){
+	int limpieza =  1700000000;
+	for(int i = 0; i < depthf.rows; i++){
+		for(int j = 0;j < depthf.cols; j++){
+			unsigned int dep = depthf.at<unsigned int>(i,j);
+			if(dep >= limpieza){
+				depthf.at<unsigned int>(i,j) = -1;
+			}
+		}
 	}
 }
 
 
 
 int main(int argc, char **argv) {
-	bool die(false);
+	bool die = false;    	
+	std::vector<Triangle> triangles;
+
 	string filename("snapshot");
 	string suffix(".png");
 	int i_snap(0);
@@ -186,55 +245,34 @@ int main(int argc, char **argv) {
 	namedWindow("depth",CV_WINDOW_AUTOSIZE);
 	device.startVideo();
 	device.startDepth();
-	int limpieza =  1700000000;
-	bool limpiar = false;
+	
+	bool iniciarLimpieza = false;
+	bool iniciarSeguimiento = false;
+	bool generarTriangulos = true;
+
 	int iter = 0;
-	int followx,followy;
-	time_t inicio,fin;
+	time_t inicio;
+	time_t fin;
 	time(&inicio);
+	
 	while (!die) {
     	device.getVideo(rgbMat);
     	device.getDepth(depthMat);
     	
 		depthMat.convertTo(depthf, CV_8UC1, 255.0/2048.0);
-		if(limpiar == true){
-			for(int i = 0; i < depthf.rows; i++){
-					for(int j = 0;j < depthf.cols; j++){
-							unsigned int dep = depthf.at<unsigned int>(i,j);
-							if(dep >= limpieza){
-									depthf.at<unsigned int>(i,j) = -1;
-							}
-					}
-			}
-		}
-		/*
-		int delta = 25;
-		locateClosest(depthf,followx,followy); //detecta lo mas cercano
-//		std::cout<<followx<<' '<<followy<<'\n';
-		int inix = 0;
-		int iniy = 0;
-		int finx = rgbMat.cols;
-		int finy = rgbMat.rows;
-		if(followx-delta > inix) inix = followx-delta;
-		if(followx+delta < finx) finx = followx+delta;
-		if(followy-delta > iniy) iniy = followy-delta;
-		if(followy+delta < finy) finy = followy+delta;
-		std::cout<<inix<<' '<<finx<<' '<<iniy<<' '<<finy<<std::endl;		
-		for(int i = iniy; i < finy ; i++){
-				for(int j = inix; j < finx; j++){
-					rgbMat.at<unsigned int>(i,j) = 25; //cambio color
-				}
-		}
-		*/
-
+		if(iniciarLimpieza 		== true) 	startCleaning(depthf);
+		if(iniciarSeguimiento 	== true) 	startFollow(depthf, rgbMat);
+		
 		cv::imshow("rgb", rgbMat);
         cv::imshow("depth",depthf);
+
 		char k = cvWaitKey(5);
 		if( k == 27 ){
 		    cvDestroyWindow("rgb");
 		    cvDestroyWindow("depth");
 			break;
 		}
+
 		if(k == 8 ) { //backspace
 			std::cout<<"saving"<<std::endl;
 			std::ostringstream file;
@@ -260,8 +298,10 @@ int main(int argc, char **argv) {
 			i_snap++;
 
 		}
-		std::vector<Triangle> triangles;
-		generateTriangles(depthf,triangles);
+		
+		if(generarTriangulos == true){
+			generateTriangles(depthf,triangles);
+		}
 		
 		if(k == 116){// tecla t 
 				for(int i = 0; i < triangles.size(); i++){
