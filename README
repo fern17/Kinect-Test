@@ -1,5 +1,6 @@
-Compilation of test done with Microsoft Kinect under Linux using libfreenect
-and OpenCV. Each folder represents a different test.
+Compilation of tests done with Microsoft Kinect under Linux using libfreenect
+and OpenCV. Each folder represents a different test. Some test may be
+correlated.
 
 libfreenect: openkinect.org
 OpenCV: opencv.willowgarage.com

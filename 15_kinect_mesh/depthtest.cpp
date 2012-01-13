@@ -131,19 +131,23 @@ void locateClosest(Mat mat, int &x, int &y ){
 }
 
 typedef struct Triangle{
-		unsigned int id;
+		int id;
 		Point3_<int> p1;
 		unsigned int p1idx;
 		Point3_<int> p2;
 		unsigned int p2idx;
 		Point3_<int> p3;
 		unsigned int p3idx;
-
+		int ady1;
+		int ady2;
+		int ady3;
+		Triangle() : ady1(-1) , ady2(-1) , ady3(-1){}
 		void print(ofstream &out){
 				out<<"ID="<<id<<" ";
 				out<<"("<<p1.x<<','<<p1.y<<','<<p1.z<<')';
 				out<<"; ("<<p2.x<<','<<p2.y<<','<<p2.z<<')';
 				out<<"; ("<<p3.x<<','<<p3.y<<','<<p3.z<<')';
+				out<<" ["<<ady1<<','<<ady2<<','<<ady3<<']';
 				out<<std::endl;
 		}
 }Triangle;
@@ -156,11 +160,26 @@ unsigned int getPointIndex(unsigned int i, unsigned int j, Mat &M){
 }
 
 void initalizeTriangles(Mat &M, std::vector<Triangle> &triangles){
-		int fullsize = (M.rows-1)*(M.cols-1)*2;
+		int cols = M.cols;
+		int rows = M.rows;
+		int fullsize = (rows-1)*(cols-1)*2;
 		triangles.resize(fullsize);
-		for(int i = 0; i < fullsize; i++)
+		for(int i = 0; i < fullsize; i++){
 				triangles[i].id = i;
-		
+		}
+		//generates neighbors
+		//vertical triangles
+		for(int i = 0; i < fullsize/2; i++){
+				if(i-cols > -1) 				triangles[i].ady1 = i-cols;
+				if(i+fullsize/2 < fullsize) 	triangles[i].ady2 = i + fullsize/2;
+				if(i+fullsize/2 + 1 < fullsize) triangles[i].ady3 = i + fullsize/2 + 1;
+		}
+		//horizontal triangles
+		for(int i = fullsize/2; i < fullsize; i++){
+				if(i - fullsize/2 - 1 > -1) 	triangles[i].ady1 = i - fullsize/2 - 1;
+				if(i - fullsize/2 > -1) 	triangles[i].ady2 = i - fullsize/2;
+				if(i + cols + fullsize/2 < fullsize) triangles[i].ady3 = i + cols + fullsize/2;
+		}
 }
 
 void generateTriangles(Mat &M, std::vector<Triangle> &triangles){
