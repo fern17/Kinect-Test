@@ -2,3 +2,4 @@
 opencv/
 docs/
 *.cpp~
+*.txt
