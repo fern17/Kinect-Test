@@ -34,7 +34,7 @@ void startFollow(Mat & depthf, Mat & rgbMat){
 
 //Cleans the depth map, leaving only a small place to render depth data
 void startCleaning(Mat &depthf){
-    int limpieza =  1700000000;
+    unsigned int limpieza =  1700000000;
     for(int i = 0; i < depthf.rows; i++){
         for(int j = 0;j < depthf.cols; j++){
             unsigned int dep = depthf.at<unsigned int>(i,j);

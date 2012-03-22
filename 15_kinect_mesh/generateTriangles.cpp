@@ -4,7 +4,8 @@
 #include <cv.h>
 #include <vector>
 #include "Triangle.h"
-#include "getPointIndex.cpp"
+
+unsigned int getPointIndex(unsigned int i, unsigned int j, unsigned int cols);
 
 //calculate triangles vertices
 void generateTriangles(Mat &M, std::vector<Triangle> &triangles){
