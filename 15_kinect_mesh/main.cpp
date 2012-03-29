@@ -16,7 +16,7 @@
 #include "Triangle.h"
 #include "generateTriangles.cpp"
 #include "initializeTriangles.cpp"
-
+#include <GL/glut.h>
 
 using namespace cv;
 using namespace std;
