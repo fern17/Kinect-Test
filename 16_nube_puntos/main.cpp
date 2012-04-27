@@ -20,51 +20,104 @@ using namespace std;
 
 
 void runOpenCV(); //declaracion por adelantado
-
+void regen();
 //------------------------------------------------------------
 // variables globales y defaults
 
-Mat depthMat(Size(640,480),CV_16UC1);
-Mat depthf  (Size(640,480),CV_8UC1);
-Mat rgbMat(Size(640,480),CV_8UC3,Scalar(0));
-int escalaGrande = 1000000000;
+Mat depthMat   (Size(640,480),CV_16UC1);
+Mat depthFrame (Size(640,480),CV_8UC1);
+Mat rgbMat     (Size(640,480),CV_8UC3, Scalar(0));
+int escalaGrande = 1000000000; //factor por el cual divido las profundidades de Kinect
 Freenect::Freenect freenect;
 MyFreenectDevice& device = freenect.createDevice<MyFreenectDevice>(0);
 
 int
   w=640, h=480, // tamaño de la ventana
-  boton=-1, // boton del mouse clickeado
+  boton = -1, // boton del mouse clickeado
   xclick,yclick, // x e y cuando clickeo un boton
   plano, // 0=x 1=y 2=z
-  maxZ = 1000;
+  maxZ = 1000;//el maximo de profundidad para puntos a lo lejos
 
 float
   escala = 100, escala0, // escala de los objetos window/modelo pixeles/unidad
-  eye[] = {0,0,5}, target[] = {0,0,0}, up[] = {0,1,0}, // camara, mirando hacia y vertical
+  eye[] = {0,0,5}, target[] = {0,0,0}, up[] = {0,1,0}, // camara, mirando hacia arriba y vertical
   znear = 3.f, zfar = 6.f, //clipping planes cercano y alejado de la camara (en 5 => veo de 3 a -3)
   amy, amy0, // angulo del modelo alrededor del eje y
   ac0, rc0, // angulo resp x y distancia al target de la camara al clickear
   lat=0,lat0,lon=0,lon0; // latitud y longitud (grados) de la camara (0=al clickear)
   double h0, w0;
 bool // variables de estado de este programa
-  perspectiva=true, // perspectiva u ortogonal
-  rota=false,       // gira continuamente los objetos respecto de y
-  dibuja=true,      // false si esta minimizado
-  wire=false,       // dibuja lineas o no
-  relleno=true,     // dibuja relleno o no
-  smooth=true,      // normales por nodo o por plano
-  cl_info=true,     // informa por la linea de comandos
-  antialias=false,  // antialiasing
-  blend=false;      // transparencias
+  perspectiva = true, // perspectiva u ortogonal
+  rota = false,       // gira continuamente los objetos respecto de y
+  dibuja = true,      // false si esta minimizado
+  animado = false,    // el objeto actual es animado
+  wire = false,       // dibuja lineas o no
+  relleno = true,     // dibuja relleno o no
+  smooth = true,      // normales por nodo o por plano
+  cl_info = true,     // informa por la linea de comandos
+  antialias = false,  // antialiasing
+  blend = false;      // transparencias
 
 short modifiers = 0;  // ctrl, alt, shift (de GLUT)
 static const double PI = 4*atan(1.0), R2G = 180/PI;
 
 inline short get_modifiers() {return modifiers=(short)glutGetModifiers();}
+// temporizador:
+static const int ms_lista[]={1,2,5,10,20,50,100,200,500,1000,2000,5000},ms_n=12;
+static int ms_i=4,msecs=ms_lista[ms_i]; // milisegundos por frame
+
+// calcula la posicion de la camara y el vector up (al manipular o si gira)
+void calc_eye(){
+  static const double g2r = atan(1.0)/45;// grados a radianes 
+  double 
+    latr = lat*g2r,
+    lonr = lon*g2r,
+    slat = sin(latr),
+    clat = cos(latr),
+    slon = sin(lonr),
+    clon = cos(lonr);
+
+  up[1] = clat; 
+  up[0] = -slat*slon; 
+  up[2] = -slat*clon;
+
+  eye[1] = 5*slat; 
+  eye[0] = 5*clat*slon; 
+  eye[2] = 5*clat*clon;
+  regen();
+}
+
+// Si no hace nada hace esto
+void Idle_cb() {
+  std::cout<<"wololo"<<std::endl;
+  static int suma;
+  static int counter = 0;				// esto es para analisis del framerate real
+  
+  // Cuenta el lapso de tiempo
+  static int anterior = glutGet(GLUT_ELAPSED_TIME); 	// milisegundos desde que arranco
+  if (msecs != 1){ 					// si msecs es 1 no pierdo tiempo
+    int tiempo = glutGet(GLUT_ELAPSED_TIME);
+    int lapso = tiempo - anterior;
+    
+    if (lapso < msecs) return;
+    
+    suma += lapso;
+    if (++counter == 100) {
+      //std::cout << "<ms/frame>= " << suma/100.0 << std::endl;
+      counter = suma = 0;
+    }
+    anterior = tiempo;
+  }
+  if (rota) { // lo camara gira 1 grado alrededor de la vertical
+    if (--lon < 0) lon=359;
+    calc_eye();
+  }
+  else glutPostRedisplay(); // redibujar
+  std::cout<<"rogan"<<std::endl;
+}
 
 // Regenera la matriz de proyeccion
 // cuando cambia algun parametro de la vista
-
 void regen() {
 //  if (cl_info) cout << "regen" << endl;
   if (!dibuja) return;
@@ -99,36 +152,26 @@ void regen() {
   gluLookAt(   eye[0],   eye[1],   eye[2],
               target[0],target[1],target[2],
                   up[0],    up[1],    up[2]);// ubica la camara
-  // rota los objetos alrededor de y
-//  glRotatef(amy,0,1,0);
+  //rota los objetos alrededor de y
+  //glRotatef(amy,0,1,0);
 
   glutPostRedisplay(); // avisa que hay que redibujar
 }
 
 
-// calcula la posicion de la camara y el vector up (al manipular o si gira)
-void calc_eye(){
-  static const double g2r = atan(1.0)/45;// grados a radianaes 
-  double 
-    latr = lat*g2r,
-    lonr = lon*g2r,
-    slat = sin(latr),
-    clat = cos(latr),
-    slon = sin(lonr),
-    clon = cos(lonr);
 
-  up[1] = clat; 
-  up[0] = -slat*slon; 
-  up[2] = -slat*clon;
-
-  eye[1] = 5*slat; 
-  eye[0] = 5*clat*slon; 
-  eye[2] = 5*clat*clon;
-  regen();
-}
 
 void reshape_cb (int w, int h) {
-    if (w==0||h==0) return;
+    if (w==0||h==0){ //minimiza
+	dibuja=false; // no dibuja mas
+	glutIdleFunc(0); // no llama a cada rato a esa funcion
+	return;
+    }
+    else if (!dibuja && w && h){// des-minimiza
+	dibuja=true; // ahora si dibuja
+	if (animado || rota) 
+	    glutIdleFunc(Idle_cb); // registra de nuevo el callback
+    }
     glViewport(0,0,w,h);
     glMatrixMode (GL_PROJECTION);
     glLoadIdentity ();
@@ -145,13 +188,19 @@ void display_cb() {
     runOpenCV();
     
     glBegin(GL_POINTS);
-	for(int i = 0; i < depthf.rows; i++){
-	  for(int j = 0; j < depthf.cols; j++){
-        double zeta = depthMat.at<double>(i,j)*(255.0/2048.0)/escalaGrande;
+	for(int i = 0; i < depthFrame.rows; i++){
+	  for(int j = 0; j < depthFrame.cols; j++){
+        double zeta = depthFrame.at<double>(i,j);
+        
+        if (zeta > 1) 
+            zeta = zeta/double(escalaGrande);
         float newx = (i-w/2)/escala;
         float newy = (j-h/2)/escala;
         std::cout<<zeta<<std::endl;
         double newz = (zeta*(zfar-znear))/maxZ;
+        
+        //std::cout<<newz<<std::endl;
+        
         float colorblue = newz/maxZ;
         glColor3f(0,0,colorblue);
         glVertex3f(newx, newy, newz);
@@ -228,10 +277,14 @@ void initialize() {
     glutReshapeFunc (reshape_cb);
     glClearColor(1.f, 1.f, 1.f, 1.f);
     glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); // habilita el z-buffer
+    glEnable(GL_NORMALIZE); // normaliza las normales para que el scaling no moleste
+    if ( !(dibuja && (animado | rota))) 
+        glutIdleFunc(0); // no llama a cada rato a esa funcion
+    else 
+        glutIdleFunc(Idle_cb); // registra el callback
     regen();
+
 }
-
-
 
 
 double diffclock(clock_t clock1,clock_t clock2){
@@ -241,13 +294,12 @@ double diffclock(clock_t clock1,clock_t clock2){
 
 
 void runOpenCV(){
-      //device.getVideo(rgbMat);
+      device.getVideo(rgbMat);
       device.getDepth(depthMat);
-      //depthMat.convertTo(depthf, CV_8UC1, 255.0/2048.0);
+      depthMat.convertTo(depthFrame, CV_8UC1, 255.0/2048.0);
 
-      //cv::imshow("rgb", rgbMat);
-      //cv::imshow("depth",depthf);
-
+      cv::imshow("rgb", rgbMat);
+      cv::imshow("depth",depthFrame);
 }
 
 
@@ -257,11 +309,10 @@ int main(int argc, char **argv) {
     initialize();
     
     namedWindow("rgb",CV_WINDOW_AUTOSIZE);
-    //namedWindow("depth",CV_WINDOW_AUTOSIZE);
+    namedWindow("depth",CV_WINDOW_AUTOSIZE);
     device.startVideo();
     device.startDepth();
    
-    
     glutMainLoop();
     
     device.stopVideo();
