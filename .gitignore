@@ -4,3 +4,6 @@ docs/
 *.*~
 *.txt
 *.png
+*.bin
+*.o
+

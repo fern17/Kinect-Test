@@ -4,6 +4,7 @@
 #include <cv.h>
 #include <highgui.h>
 
+using namespace cv;
 int main(int argc, char *argv[])
 {
   // Nothing but create a window

@@ -1,3 +1,4 @@
+
 #include <libfreenect.hpp>
 #include <iostream>
 #include <vector>

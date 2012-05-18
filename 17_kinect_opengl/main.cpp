@@ -270,11 +270,11 @@ void DrawGLScene()
 	glTexImage2D(GL_TEXTURE_2D, 0, 4, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, &depth[0]);
 
 	glBegin(GL_TRIANGLE_FAN);
-	glColor4f(255.0f, 255.0f, 255.0f, 255.0f);
-	glTexCoord2f(0, 0); glVertex3f(0,0,0);
-	glTexCoord2f(1, 0); glVertex3f(640,0,0);
-	glTexCoord2f(1, 1); glVertex3f(640,480,0);
-	glTexCoord2f(0, 1); glVertex3f(0,480,0);
+        glColor4f(255.0f, 255.0f, 255.0f, 255.0f);
+        glTexCoord2f(0, 0); glVertex3f(0,0,0);
+        glTexCoord2f(1, 0); glVertex3f(640,0,0);
+        glTexCoord2f(1, 1); glVertex3f(640,480,0);
+        glTexCoord2f(0, 1); glVertex3f(0,480,0);
 	glEnd();
 	glutSwapBuffers();
 }
@@ -315,7 +315,7 @@ int main(int argc, char **argv) {
 	//Get Kinect Device
 	device = &freenect.createDevice<MyFreenectDevice>(0);
 	//Start Kinect Device
-	device->setTiltDegrees(10);
+	//device->setTiltDegrees(0);
 	//device->startVideo();
 	device->startDepth();
 	//handle Kinect Device Data

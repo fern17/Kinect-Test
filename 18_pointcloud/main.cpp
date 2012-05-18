@@ -12,7 +12,6 @@
 #include "Mutex.cpp"
 #include "MyFreenectDevice.h"
 
-#include "libfreenect_sync.h" 
 #include <GL/glut.h>
 
 using namespace cv;
@@ -44,7 +43,7 @@ int
 float
   escala = 100, escala0, // escala de los objetos window/modelo pixeles/unidad
   eye[] = {0,0,5}, target[] = {0,0,0}, up[] = {0,1,0}, // camara, mirando hacia arriba y vertical
-  znear = 3.f, zfar = 6.f, //clipping planes cercano y alejado de la camara (en 5 => veo de 3 a -3)
+  znear = 0.3f, zfar = 10.f,               //clipping planes cercano y alejado de la camara (en 5 => veo de 3 a -3)
   amy, amy0, // angulo del modelo alrededor del eje y
   ac0, rc0, // angulo resp x y distancia al target de la camara al clickear
   lat=0,lat0,lon=0,lon0; // latitud y longitud (grados) de la camara (0=al clickear)
@@ -132,7 +131,6 @@ void calc_eye(){
 void Idle_cb() {
   static int suma;
   static int counter = 0;				// esto es para analisis del framerate real
-  
   // Cuenta el lapso de tiempo
   static int anterior = glutGet(GLUT_ELAPSED_TIME); 	// milisegundos desde que arranco
   if (msecs != 1){ 					// si msecs es 1 no pierdo tiempo
@@ -158,7 +156,6 @@ void Idle_cb() {
 // Regenera la matriz de proyeccion
 // cuando cambia algun parametro de la vista
 void regen() {
-//  if (cl_info) cout << "regen" << endl;
   if (!dibuja) return;
   // matriz de proyeccion
   glMatrixMode(GL_PROJECTION);
@@ -183,6 +180,7 @@ void regen() {
   }
   else { // proyeccion ortogonal
     glOrtho(-w0, w0, -h0, h0, znear, zfar);
+    //glOrtho(0, w, 0, h, znear, zfar);
   }
 
   glMatrixMode(GL_MODELVIEW); glLoadIdentity(); // matriz del modelo
@@ -197,7 +195,6 @@ void regen() {
   glutPostRedisplay(); // avisa que hay que redibujar
 }
 
-
 void ReSizeGLScene(int Width, int Height)
 {
     glViewport(0,0,Width,Height);
@@ -206,7 +203,6 @@ void ReSizeGLScene(int Width, int Height)
     gluPerspective(60, 4/3., 0.3, 200);
     glMatrixMode(GL_MODELVIEW);
 }
-
 
 void reshape_cb (int w, int h) {
     if (w==0||h==0){ //minimiza
@@ -221,105 +217,41 @@ void reshape_cb (int w, int h) {
     }
     glViewport(0,0,w,h);
     glMatrixMode (GL_PROJECTION);
-    glLoadIdentity ();
+    glLoadIdentity();
     gluOrtho2D(0,w,0,h);
     glMatrixMode (GL_MODELVIEW);
-    glLoadIdentity ();
+    glLoadIdentity();
     regen();
 }
 
 void display_cb() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    short *depth = 0;
-    char *rgb = 0;
-    uint32_t ts;
+    runOpenCV();
     glPointSize(1);
-//    runOpenCV();
-    if (freenect_sync_get_depth((void**)&depth, &ts, 0, FREENECT_DEPTH_11BIT) < 0)
-        std::cout<<"no_kinect_quit()"<<std::endl;
-    if (freenect_sync_get_video((void**)&rgb, &ts, 0, FREENECT_VIDEO_RGB) < 0)
-        std::cout<<"no_kinect_quit()"<<std::endl;
-    std::cout<<"passed\n";
-    glScalef(1/640.0f,1/480.0f,1);
-    LoadRGBMatrix();
-    LoadVertexMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    
-    static unsigned int indices[480][640];
-    static short xyz[480][640][3];
-    int i,j;
-    for (i = 0; i < 480; i++) {
-        for (j = 0; j < 640; j++) {
-            xyz[i][j][0] = j;
-            xyz[i][j][1] = i;
-            xyz[i][j][2] = depth[i*640+j];
-            indices[i][j] = i*640+j;
-        }
-    }
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glLoadIdentity();
-
-    glPushMatrix();
-    //glScalef(zoom,zoom,1);
-    glTranslatef(0,0,-3.5);
-    //glRotatef(rotangles[0], 1,0,0);
-    //glRotatef(rotangles[1], 0,1,0);
-    glTranslatef(0,0,1.5);
-
-    LoadVertexMatrix();
-
-    // Set the projection from the XYZ to the texture image
-    /*glMatrixMode(GL_TEXTURE);
-    glLoadIdentity();
-    glScalef(1/640.0f,1/480.0f,1);
-    LoadRGBMatrix();
-    LoadVertexMatrix();
-    glMatrixMode(GL_MODELVIEW);*/
-
-    glPointSize(1);
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_SHORT, 0, xyz);
-    //glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    //glTexCoordPointer(3, GL_SHORT, 0, xyz);
-
-    /*if (color)
-        glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, gl_rgb_tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, rgb);
-*/
-    glPointSize(2.0f);
-    glDrawElements(GL_POINTS, 640*480, GL_UNSIGNED_INT, indices);
-    glPopMatrix();
-    //glDisable(GL_TEXTURE_2D);
-    glutSwapBuffers();
-
-
-/*
     glBegin(GL_POINTS);
-	for(int i = 0; i < 480; i++){
-	  for(int j = 0; j < 640; j++){
-        double newx = j;
-        double newy = i;
-        double zeta = depth[j*640+i];
-        double newz = 1.0 / (double(zeta) * -0.0030711016 + 3.3309495161); //(sacado de un mail de la lista de kinect) nslakshmiprabha@gmail.com
-        std::cout<<zeta<<' '<<newz<<std::endl;
-        if (zeta > 1) 
-            zeta = zeta/double(escalaGrande);
+	for(int i = 0; i < depthFrame.rows; i++){
+	  for(int j = 0; j < depthFrame.cols; j++){
+        uint16_t newx = j;
+        uint16_t newy = i;
+        uint16_t zeta = depthMat.at<uint16_t>(i,j);
+        //double newz = 1.0 / (double(zeta) * -0.0030711016 + 3.3309495161); //(sacado de un mail de la lista de kinect) nslakshmiprabha@gmail.com
+        //if (zeta > 1)     zeta = zeta/double(escalaGrande);
         //double newx = (i-w/2)/escala;
         //double newy = (j-h/2)/escala;
         
-//        double newz = (zeta*(zfar-znear))/maxZ;
-        
-        
-        float colorblue = newz/maxZ;
-        glColor3f(0,0,colorblue);
-        glVertex3f(newx,newy, newz);
-        //glVertex3f(newx, newy, newz);
+        //double newz = (zeta*(zfar-znear))/maxZ;
+        float color[] = {1,0,0}; 
+        if(zeta == 2047)
+            color[1] = 1;
+        if(zeta != 0 && zeta != 2047)
+            color[2] = 100/(zeta);
+        //std::cout<<zeta<<' ';
+        glColor3f(color[0], color[1], color[2]);
+        glVertex3i(newx,newy, zeta);
 	  }
 	}
     glEnd();
-    */
+    
     glutSwapBuffers();
 }
 
@@ -386,11 +318,10 @@ void initialize() {
     glutInitWindowPosition (100,100);
     glutCreateWindow ("Profundidades");
     glutDisplayFunc (display_cb);
-    //glutDisplayFunc (DrawGLScene);
     glutMouseFunc(Mouse_cb); // botones apretados
-    //glutReshapeFunc (reshape_cb);
     glutReshapeFunc (ReSizeGLScene);
-    glClearColor(0.f, 0.f, 0.f, 0.f);
+    glutReshapeFunc (reshape_cb);
+    glClearColor(1.f, 1.f, 1.f, 1.f);
     glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); // habilita el z-buffer
     glEnable(GL_NORMALIZE); // normaliza las normales para que el scaling no moleste
     if ( !(dibuja && (animado | rota))) 
@@ -413,8 +344,15 @@ void runOpenCV(){
       device.getDepth(depthMat);
       depthMat.convertTo(depthFrame, CV_8UC1, 255.0/2048.0);
 
-      cv::imshow("rgb", rgbMat);
-      cv::imshow("depth",depthFrame);
+      /*
+      std::cout<<depthMat.at<uint16_t>(480/2,640/2)<<' ';
+      uint16_t value = (depthFrame.at<uint16_t>(480/2,640/2));
+
+      std::cout<<value<<' ';
+      std::cout<<1.0 / (double(value) * -0.0030711016 + 3.3309495161)<<std::endl; //(sacado de un mail de la lista de kinect) nslakshmiprabha@gmail.com
+      */
+//      cv::imshow("rgb", rgbMat);
+//      cv::imshow("depth",depthFrame);
 }
 
 
@@ -423,8 +361,8 @@ int main(int argc, char **argv) {
 
     initialize();
     
-    namedWindow("rgb",CV_WINDOW_AUTOSIZE);
-    namedWindow("depth",CV_WINDOW_AUTOSIZE);
+  //  namedWindow("rgb",CV_WINDOW_AUTOSIZE);
+  //  namedWindow("depth",CV_WINDOW_AUTOSIZE);
     device.startVideo();
     device.startDepth();
    
