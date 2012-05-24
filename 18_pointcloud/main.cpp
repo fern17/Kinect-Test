@@ -146,11 +146,12 @@ void Idle_cb() {
     }
     anterior = tiempo;
   }
-  if (rota) { // lo camara gira 1 grado alrededor de la vertical
+  /*if (rota) { // lo camara gira 1 grado alrededor de la vertical
     if (--lon < 0) lon=359;
     calc_eye();
   }
-  else glutPostRedisplay(); // redibujar
+  else */
+  glutPostRedisplay(); // redibujar
 }
 
 // Regenera la matriz de proyeccion
@@ -233,26 +234,35 @@ void display_cb() {
 	  for(int j = 0; j < depthFrame.cols; j++){
         uint16_t newx = j;
         uint16_t newy = i;
-        uint16_t zeta = depthMat.at<uint16_t>(i,j);
+        uint8_t zeta = depthFrame.at<uint8_t>(i,j);
         //double newz = 1.0 / (double(zeta) * -0.0030711016 + 3.3309495161); //(sacado de un mail de la lista de kinect) nslakshmiprabha@gmail.com
         //if (zeta > 1)     zeta = zeta/double(escalaGrande);
         //double newx = (i-w/2)/escala;
         //double newy = (j-h/2)/escala;
         
         //double newz = (zeta*(zfar-znear))/maxZ;
-        float color[] = {1,0,0}; 
-        if(zeta == 2047)
-            color[1] = 1;
-        if(zeta != 0 && zeta != 2047)
-            color[2] = 100/(zeta);
-        //std::cout<<zeta<<' ';
-        glColor3f(color[0], color[1], color[2]);
+        glColor3ub(0,zeta,0);
         glVertex3i(newx,newy, zeta);
 	  }
 	}
     glEnd();
     
     glutSwapBuffers();
+}
+
+void findMaximo(Mat &d, int &maximo, int &minimo){
+    maximo = 0;
+    minimo = 255;
+    
+    for(unsigned int i = 0; i < d.rows; i++){
+        for(unsigned int j = 0; j < d.cols; j++){
+            int value = d.at<uint8_t>(i,j);
+            if(value > maximo)
+                maximo = value;
+            if(value < minimo)
+                minimo = value;
+        }
+    }
 }
 
 
@@ -324,10 +334,10 @@ void initialize() {
     glClearColor(1.f, 1.f, 1.f, 1.f);
     glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); // habilita el z-buffer
     glEnable(GL_NORMALIZE); // normaliza las normales para que el scaling no moleste
-    if ( !(dibuja && (animado | rota))) 
-        glutIdleFunc(0); // no llama a cada rato a esa funcion
-    else 
-        glutIdleFunc(Idle_cb); // registra el callback
+    //if ( !(dibuja && (animado | rota))) 
+    //    glutIdleFunc(0); // no llama a cada rato a esa funcion
+    //else 
+    glutIdleFunc(Idle_cb); // registra el callback
     regen();
 
 }
