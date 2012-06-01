@@ -225,23 +225,48 @@ void reshape_cb (int w, int h) {
     regen();
 }
 
+
+void findExtremos(Mat &depthF,uint8_t &maximo, uint8_t &minimo){
+    maximo = 0;
+    minimo = 255;
+    
+    for(int i = 0; i < depthF.rows; i++){
+        for(int j = 0; j < depthF.cols; j++){
+            uint8_t value = depthF.at<uint8_t>(i,j);
+ //           cout<<int(value)<<' ';
+            if(value > maximo)
+                maximo = value;
+            if(value < minimo)
+                minimo = value;
+        }
+    }
+    if(maximo == minimo)
+        maximo++;
+}
+
 void display_cb() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     runOpenCV();
     glPointSize(1);
+    uint8_t maximo,minimo;
+    findExtremos(depthFrame,maximo,minimo);
     glBegin(GL_POINTS);
 	for(int i = 0; i < depthFrame.rows; i++){
 	  for(int j = 0; j < depthFrame.cols; j++){
         uint16_t newx = j;
         uint16_t newy = i;
         uint8_t zeta = depthFrame.at<uint8_t>(i,j);
+//        cout<<(zeta)<<' ';
+        //std::cout<<int(maximo)<<' '<<int(minimo)<<std::endl;
+        float newz = float(zeta-minimo)/(maximo-minimo);
+        newz = newz*255;
         //double newz = 1.0 / (double(zeta) * -0.0030711016 + 3.3309495161); //(sacado de un mail de la lista de kinect) nslakshmiprabha@gmail.com
         //if (zeta > 1)     zeta = zeta/double(escalaGrande);
         //double newx = (i-w/2)/escala;
         //double newy = (j-h/2)/escala;
-        
+        //std::cout<<newz<<' '; 
         //double newz = (zeta*(zfar-znear))/maxZ;
-        glColor3ub(0,zeta,0);
+        glColor3ub(0,newz,0);
         glVertex3i(newx,newy, zeta);
 	  }
 	}
@@ -250,20 +275,6 @@ void display_cb() {
     glutSwapBuffers();
 }
 
-void findMaximo(Mat &d, int &maximo, int &minimo){
-    maximo = 0;
-    minimo = 255;
-    
-    for(unsigned int i = 0; i < d.rows; i++){
-        for(unsigned int j = 0; j < d.cols; j++){
-            int value = d.at<uint8_t>(i,j);
-            if(value > maximo)
-                maximo = value;
-            if(value < minimo)
-                minimo = value;
-        }
-    }
-}
 
 
 //------------------------------------------------------------
