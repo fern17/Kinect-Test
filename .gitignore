@@ -6,4 +6,5 @@ docs/
 *.png
 *.bin
 *.o
+FingerTracking/
 
