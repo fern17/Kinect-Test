@@ -29,6 +29,7 @@ using namespace std;
 void runOpenCV(); 
 void regen();
 void findExtremos(Mat &depthF,uint8_t &maximo, uint8_t &minimo);
+std::vector<float> tria2vert(int idx);
 
 //Declara por adelantado los callbacks
 void display_cb();
@@ -336,23 +337,20 @@ void display_cb() {
 		}
 	}
 	glEnd();
-	/*    
-	unsigned int cant_triangulos = (puntos_horiz-1)*(puntos_vert-1)*2;
-	static const unsigned int cant_indices = cant_triangulos*2;
-	//array de vertices: x1,y1,z1,x2,y2,z2,....,xn,yn,zn con n=puntos_horiz * puntos_vert
-	static const unsigned int cant_vertices = puntos_horiz*puntos_vert*3;
-	GLint * vertices = new GLint[cant_vertices]; 
-	GLubyte * indices = new GLubyte[cant_indices]; //indices de los triangulos
-	*/
-	/*
+	
 	glBegin(GL_TRIANGLES);
-	for(int i = 0; i < cant_indices-2; i+=3){
-	glVertex3i(vertices[indices[i]*3 ], vertices[indices[i]*3+1 ], vertices[indices[i]*3+2 ]);
-	glVertex3i(vertices[indices[i+1]*3 ], vertices[indices[i+1]*3+1 ], vertices[indices[i+1]*3+2 ]);
-	glVertex3i(vertices[indices[i+2]*3 ], vertices[indices[i+2]*3+1 ], vertices[indices[i+2]*3+2 ]);
+	for(unsigned int i = 0; i < cant_triangulos; i++){
+		std::vector<float> coords = tria2vert(i);
+		glVertex3f(coords[0],coords[1],coords[2]);
+		glVertex3f(coords[3],coords[4],coords[5]);
+		glVertex3f(coords[6],coords[7],coords[8]);
 	}
-	glEnd();*/
+	glEnd();
 }
+
+
+
+
 //--------------------FIN CALLBACKS---------------------------------------------
 
 //--------------------METODOS PROPIOS-------------------------------------------
@@ -362,13 +360,37 @@ double diffclock(clock_t clock1,clock_t clock2){
 	return (diffticks*1000)/CLOCKS_PER_SEC;
 }
 
+//dado un triangulo,devuelve las coordenadas de sus 3 vertices en un std::vector
+std::vector<float> tria2vert(int idx){
+	std::vector<float> coords;
+	
+	int base = idx*3;
+	int indexes []= {base, base+1,base+2}; 
+	
+	float p1 []= {	vertices[indices[indexes[0] ]*3 ], 
+					vertices[indices[indexes[0] ]*3+1], 
+					vertices[indices[indexes[0] ]*3+2]  };
+	float p2 []= {	vertices[indices[indexes[1] ]*3 ], 
+					vertices[indices[indexes[1] ]*3+1], 
+					vertices[indices[indexes[1] ]*3+2]  };
+	float p3 []= {	vertices[indices[indexes[2] ]*3 ], 
+					vertices[indices[indexes[2] ]*3+1], 
+					vertices[indices[indexes[2] ]*3+2]  };
+	
+	coords.push_back(p1[0]); coords.push_back(p1[1]); coords.push_back(p1[2]);
+	coords.push_back(p2[0]); coords.push_back(p2[1]); coords.push_back(p2[2]);
+	coords.push_back(p3[0]); coords.push_back(p3[1]); coords.push_back(p3[2]);
+	
+	return coords;	
+}
+
 void generarMalla(){
     unsigned int idx = 0;
-    //ubica los vertices
+    //guarda en el array vertices, las coordenadas de los puntos {...,x_i,y_i,z_i,...}
     for(int i = 0; i < depthFrame.rows; i++){
         for(int j = 0; j < depthFrame.cols; j++){
-            vertices[idx] = i;
-            vertices[idx+1] = j;
+			vertices[idx] = j;
+            vertices[idx+1] = i;
             vertices[idx+2] = depthFrame.at<uint8_t>(i,j);
             idx += 3;
         }
@@ -378,17 +400,17 @@ void generarMalla(){
     //   \tipo |
     //    \ 1  |
     //     \   |
-    //       i+puntos_horiz */
+    //       i+puntos_horiz+1 */
     idx = 0;
-    for(unsigned int i = 0; i <= cant_triangulos/2; i++){
-       indices[idx] = i;
-       indices[idx+1] = i+1;
-       indices[idx+2] = i + puntos_horiz + 1;
-       idx += 3;
-       if(i / puntos_horiz >= (puntos_horiz-1)) 
-           break; //termine de recorrer
-       if(((i+2) % puntos_horiz) == 0) 
-           i++; //llego al borde, me salto uno
+    for(unsigned int i = 0; i <= puntos_horiz*puntos_vert - 1 - puntos_horiz; i++){
+		indices[idx] = i;
+		indices[idx+1] = i+1;
+		indices[idx+2] = i + puntos_horiz + 1;
+		idx += 3;
+		//if(i / float(puntos_horiz) >= (puntos_horiz-1)) 
+		//    break; //termine de recorrer
+		if(((i+2) % puntos_horiz) == 0) 
+			i++; //llego al borde, me salto uno
     }
     
     /*crea triangulos tipo 2 
@@ -399,14 +421,14 @@ void generarMalla(){
     //  i-----i+1*/
 
     for(unsigned int i = puntos_horiz; i < puntos_horiz*puntos_vert - 1; i++){
-       indices[idx] = i - puntos_horiz;
-       indices[idx+1] = i;
-       indices[idx+2] = i+1;
-       idx += 3;
-       if(i / puntos_horiz >= (puntos_horiz)) 
-           break; //termine de recorrer
-       if(((i+2) % puntos_horiz) == 0) 
-           i++; //llego al borde, me salto uno
+		indices[idx] = i - puntos_horiz;
+		indices[idx+1] = i;
+		indices[idx+2] = i+1;
+		idx += 3;
+		//if(i / puntos_horiz >= (puntos_horiz)) 
+		//	break; //termine de recorrer
+		if(((i+2) % puntos_horiz) == 0) 
+			i++; //llego al borde, me salto uno
     }
 
 }
