@@ -3,25 +3,39 @@
 
 #include <libfreenect.hpp>
 #include <vector>
-#include <cv.h>
-#include <cxcore.h>
-#include <highgui.h>
+//#include <cv.h>
+//#include <cxcore.h>
+//#include <highgui.h>
 #include "Mutex.cpp"
 
-using namespace cv;
+//using namespace cv;
 using namespace std;
-
 class MyFreenectDevice : public Freenect::FreenectDevice {
+
+  private:
+    static const unsigned int w = 640, h = 480;
+    //std::vector<uint8_t> m_buffer_depth_rgb;
+    std::vector<uint16_t> m_buffer_depth;
+    std::vector<uint8_t> m_buffer_video;
+    //std::vector<uint16_t> m_gamma;
+    //Mat depthMat;
+    //Mat rgbMat;
+    //Mat ownMat;
+    Mutex m_rgb_mutex;
+    Mutex m_depth_mutex;
+    bool m_new_rgb_frame;
+    bool m_new_depth_frame;
   public:
     MyFreenectDevice (freenect_context *_ctx, int _index) : 
             Freenect::FreenectDevice(_ctx, _index), 
-            m_buffer_depth_rgb(freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB).bytes),
-            m_buffer_depth(FREENECT_DEPTH_11BIT), 
-            m_buffer_rgb(FREENECT_VIDEO_RGB), 
-            m_gamma(2048), 
-            depthMat(Size(640,480),CV_16UC1), 
-            rgbMat(Size(640,480),CV_8UC3,Scalar(0)), 
-            ownMat(Size(640,480),CV_8UC3,Scalar(0)),
+            //m_buffer_depth_rgb(freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB).bytes),
+            m_buffer_depth(freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB).bytes),
+            //m_buffer_depth(FREENECT_DEPTH_11BIT), 
+            m_buffer_video(freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB).bytes), 
+            //m_gamma(2048), 
+            //depthMat(Size(640,480),CV_16UC1), 
+            //rgbMat(Size(640,480),CV_8UC3,Scalar(0)), 
+            //ownMat(Size(640,480),CV_8UC3,Scalar(0)),
             m_new_rgb_frame(false), m_new_depth_frame(false){
         /*for( unsigned int i = 0 ; i < 2048 ; i++) {
             float v = i/2048.0;
@@ -29,20 +43,22 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
             m_gamma[i] = v*6*256;
         }*/
         // Source: http://groups.google.com/group/openkinect/browse_thread/thread/31351846fd33c78/e98a94ac605b9f21
+        /*
         for (size_t i = 0; i < 2048; i++){
             const float k1 = 1.1863;
             const float k2 = 2842.5;
             const float k3 = 0.1236;
             const float d = k3 * std::tan(i/k2 + k1);
             m_gamma[i] = d;
-        }
+        }*/
     }
+    
     // Do not call directly even in child
     void VideoCallback(void* _rgb, uint32_t timestamp) {
-        //std::cout << "RGB callback" << std::endl;
         m_rgb_mutex.lock();
         uint8_t* rgb = static_cast<uint8_t*>(_rgb);
-        rgbMat.data = rgb;
+        std::copy(rgb, rgb+getVideoBufferSize(), m_buffer_video.begin());
+        //rgbMat.data = rgb;
         m_new_rgb_frame = true;
         m_rgb_mutex.unlock();
     }
@@ -52,6 +68,7 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
         
         m_depth_mutex.lock();
         uint16_t* depth = static_cast<uint16_t*>(_depth);
+        
         //SOURCE: http://code.google.com/p/3d-kinect-modelling/source/browse/trunk/headers/MyFreenectDevice.h
 		/*
         for( unsigned int i = 0 ; i < 640*480 ; i++) {
@@ -100,19 +117,21 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
 					break;
 			}
 		}*/
-		//std::copy(depth, depth+640*480, m_buffer_depth.begin());
-		depthMat.data = (uchar*) depth;
-		//depthMat.data = (uchar*) m_buffer_depth_rgb[0];
+		std::copy(depth, depth+w*h, m_buffer_depth.begin());
+		//this->depthMat.data = (uchar*) depth;
+		//this->depthMat.data = (uchar*) m_buffer_depth_rgb[0];
         
 		m_new_depth_frame = true;
         m_depth_mutex.unlock();
     }
 
 
-    bool getVideo(Mat& output) {
+    //bool getVideo(Mat& output) {
+    bool getVideo(std::vector<uint8_t> &buffer) {
         m_rgb_mutex.lock();
         if(m_new_rgb_frame) {
-            cv::cvtColor(rgbMat, output, CV_RGB2BGR);
+            //cv::cvtColor(rgbMat, output, CV_RGB2BGR);
+            buffer.swap(m_buffer_video);
             m_new_rgb_frame = false;
             m_rgb_mutex.unlock();
             return true;
@@ -122,10 +141,19 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
         }
     }
 
-    bool getDepth(Mat& output) {
+    //bool getDepth(Mat& output) {
+    bool getDepth(double depth[h][w]) {
         m_depth_mutex.lock();
         if(m_new_depth_frame) {
-            depthMat.copyTo(output);
+            //this->depthMat.copyTo(output);
+            //
+            //Codigo de lucas, cristian y emma
+            for(unsigned int i=0; i<this->h; ++i) {
+                for(unsigned int j=0; j<this->w; ++j) {
+                    depth[i][j] = double(m_buffer_depth[i*this->w+j]);
+                }
+            }
+            
             m_new_depth_frame = false;
             m_depth_mutex.unlock();
             return true;
@@ -134,18 +162,5 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
             return false;
         }
 	}
-
-  private:
-    std::vector<uint8_t> m_buffer_depth_rgb;
-    std::vector<uint16_t> m_buffer_depth;
-    std::vector<uint8_t> m_buffer_rgb;
-    std::vector<uint16_t> m_gamma;
-    Mat depthMat;
-    Mat rgbMat;
-    Mat ownMat;
-    Mutex m_rgb_mutex;
-    Mutex m_depth_mutex;
-    bool m_new_rgb_frame;
-    bool m_new_depth_frame;
 };
 #endif

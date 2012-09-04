@@ -26,10 +26,12 @@ using namespace cv;
 using namespace std;
 
 //declaracion por adelantado de ciertas funciones
-void runOpenCV(); 
-void regen();
-void findExtremos(Mat &depthF,uint8_t &maximo, uint8_t &minimo);
-std::vector<float> tria2vert(int idx);
+void runOpenCV(); //realiza la actualizacion de los datos del kinect
+void generarMalla(); // crea la estructura de la malla
+void actualizarMalla(); //actualiza profundidades
+void regen(); //renegera la vista de opengl
+void findExtremos(uint8_t &maximo, uint8_t &minimo); //obtiene los maximos de profundidad
+std::vector<float> tria2vert(int idx); //dado un indice de triangulo, devuelve las coordenadas de sus vertices
 
 //Declara por adelantado los callbacks
 void display_cb();
@@ -38,20 +40,21 @@ void Idle_cb();
 void reshape_cb (int w, int h);
 
 //----------------VARIABLES GLOBALES Y DEFAULTS---------------------------------
-unsigned int puntos_horiz = 640;
-unsigned int puntos_vert = 480;
+const unsigned int puntos_horiz = 640;
+const unsigned int puntos_vert = 480;
 
+unsigned int maximo, minimo;
 //Matrices de OpenCV
-Mat depthMat   (Size(puntos_horiz,puntos_vert),CV_16UC1);
-Mat depthFrame (Size(puntos_horiz,puntos_vert),CV_8UC1);
-Mat rgbMat     (Size(puntos_horiz,puntos_vert),CV_8UC3, Scalar(0));
+//Mat depthMat   (Size(puntos_horiz,puntos_vert),CV_16UC1);
+//Mat depthFrame (Size(puntos_horiz,puntos_vert),CV_8UC1);
+//Mat rgbMat     (Size(puntos_horiz,puntos_vert),CV_8UC3, Scalar(0));
 
-//factor por el cual divido las profundidades de Kinect
-int escalaGrande = 1000000000; 
+double depth[puntos_vert][puntos_horiz];
+
 
 //Valores usados para la malla
 unsigned int cant_triangulos = (puntos_horiz-1)*(puntos_vert-1)*2;
-static const unsigned int cant_indices = cant_triangulos*2;
+static const unsigned int cant_indices = cant_triangulos*3;
 //array de vertices: x1,y1,z1,x2,y2,z2,....,xn,yn,zn con n=puntos_horiz * puntos_vert
 static const unsigned int cant_vertices = puntos_horiz*puntos_vert*3;
 
@@ -81,17 +84,19 @@ bool // variables de estado de este programa
  
 
 short modifiers = 0;  // ctrl, alt, shift (de GLUT)
-static const double PI = 4*atan(1.0), R2G = 180/PI;
+static const double  PI = 4*atan(1.0), 
+                     R2G = 180/PI;
 
-inline short get_modifiers() {return modifiers=(short)glutGetModifiers();}
+inline short get_modifiers() { 
+    return modifiers = (short) glutGetModifiers();
+}
 
 //----------------------FUNCIONES DE SOPORTE DE OPENGL-------------------------
 //----glpclview.c-----
 // Do the projection from u,v,depth to X,Y,Z directly in an opengl matrix
 // These numbers come from a combination of the ros kinect_node wiki, and
 // nicolas burrus' posts.
-void LoadVertexMatrix()
-{
+void LoadVertexMatrix() {
     float fx = 594.21f;
     float fy = 591.04f;
     float a = -0.0030711f;
@@ -110,8 +115,7 @@ void LoadVertexMatrix()
 /* SIN USO
 // This matrix comes from a combination of nicolas burrus's calibration post
 // and some python code I haven't documented yet.
-void LoadRGBMatrix()
-{
+void LoadRGBMatrix() {
     float mat[16] = {
         5.34866271e+02,   3.89654806e+00,   0.00000000e+00,   1.74704200e-02,
         -4.70724694e+00,  -5.28843603e+02,   0.00000000e+00,  -1.22753400e-02,
@@ -125,7 +129,7 @@ void LoadRGBMatrix()
 //------------------------------------------------------------------
 
 // calcula la posicion de la camara y el vector up (al manipular o si gira)
-void calc_eye(){
+void calc_eye() {
 	static const double g2r = atan(1.0)/45;// grados a radianes 
 	double 
 		latr = lat*g2r,
@@ -164,7 +168,7 @@ void initialize() {
 	
 	//inicializacion para triangulos
 	glEnableClientState(GL_VERTEX_ARRAY);
-	
+
 	regen();
 }
 
@@ -309,22 +313,55 @@ void Mouse_cb(int button, int state, int x, int y){
 }
 
 void display_cb() {
-	runOpenCV(); 
+	//runOpenCV(); 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
+    if(!device.getDepth(depth))
+        return; //evita iteraciones si no hay nuevo frame
 	glPointSize(1);
-	uint8_t maximo, minimo;
+
+    unsigned int idx = 0;
+   
+    
+    glBegin(GL_POINTS);
+    for(unsigned int i = 0; i < puntos_vert; ++i){
+		for(unsigned int j = 0; j < puntos_horiz; ++j){
+			//optiene coordenadas de mundo
+			uint16_t newx = j;
+			uint16_t newy = i;
+			unsigned int zeta = (unsigned int) depth[i][j];
+            
+            //actualiza la malla
+            vertices[idx+2] = zeta; 
+            idx += 3;
 	
-	findExtremos(depthFrame, maximo, minimo);
-	
-	glBegin(GL_POINTS);
+			//interpola el color segun profundidad
+			float newz = float(zeta-minimo)/(maximo-minimo); 
+			
+            newz = newz*255;
+			
+			//(sacado de un mail de la lista de kinect) nslakshmiprabha@gmail.com
+			//double newz = 1.0 / (double(zeta) * -0.0030711016 + 3.3309495161); 
+		
+            //std::cout<<newx<<' '<<newy<<' '<<newz<<' '<<zeta<<'\n';
+			//dibuja el vertex
+			glColor3ub(0,newz,0); glVertex3i(newx,newy, zeta);
+		}
+	}
+	glEnd();
+    /*
 	for(int i = 0; i < depthFrame.rows; i++){
 		for(int j = 0; j < depthFrame.cols; j++){
 			//optiene coordenadas de mundo
 			uint16_t newx = j;
 			uint16_t newy = i;
 			uint8_t zeta = depthFrame.at<uint8_t>(i,j);
-			
+
+            std::cout<<zeta<<'\n';
+            //actualiza la malla
+            //vertices[idx+2] = zeta; 
+            //idx += 3;
+	
 			//interpola el color segun profundidad
 			float newz = float(zeta-minimo)/(maximo-minimo); 
 			newz = newz*255;
@@ -337,15 +374,21 @@ void display_cb() {
 		}
 	}
 	glEnd();
-	
+    */
+    
+    glColor3i(0,0,1);
 	glBegin(GL_TRIANGLES);
 	for(unsigned int i = 0; i < cant_triangulos; i++){
 		std::vector<float> coords = tria2vert(i);
+        std::cout<<coords[0]<<' '<<coords[1]<<' '<<coords[2]<<'\n';
 		glVertex3f(coords[0],coords[1],coords[2]);
 		glVertex3f(coords[3],coords[4],coords[5]);
 		glVertex3f(coords[6],coords[7],coords[8]);
 	}
 	glEnd();
+	//glutPostRedisplay(); 
+    glutSwapBuffers(); 
+    regen();
 }
 
 
@@ -384,14 +427,21 @@ std::vector<float> tria2vert(int idx){
 	return coords;	
 }
 
+//Crea la malla, definiendo los indices que corresponden a cada triangulo
 void generarMalla(){
     unsigned int idx = 0;
     //guarda en el array vertices, las coordenadas de los puntos {...,x_i,y_i,z_i,...}
-    for(int i = 0; i < depthFrame.rows; i++){
-        for(int j = 0; j < depthFrame.cols; j++){
-			vertices[idx] = j;
-            vertices[idx+1] = i;
-            vertices[idx+2] = depthFrame.at<uint8_t>(i,j);
+    //for(int i = 0; i < depthFrame.rows; i++){
+    //    for(int j = 0; j < depthFrame.cols; j++){
+    for(unsigned int i = 0; i < puntos_vert; i++){
+        for(unsigned int j = 0; j < puntos_horiz; j++){
+			vertices[idx] = i; //revisar
+            vertices[idx+1] = j;
+            vertices[idx+2] = depth[i][j];
+            
+			//vertices[idx] = j;
+            //vertices[idx+1] = i;
+            //vertices[idx+2] = depthFrame.at<uint8_t>(i,j);
             idx += 3;
         }
     }
@@ -430,19 +480,30 @@ void generarMalla(){
 		if(((i+2) % puntos_horiz) == 0) 
 			i++; //llego al borde, me salto uno
     }
-
 }
 
+//Actualiza la profundidad, que es lo unico que cambio entre iteraciones sucesivas
+void actualizarMalla() {
+    unsigned int idx = 0;
+//    for(int i = 0; i < depthFrame.rows; i++){
+//        for(int j = 0; j < depthFrame.cols; j++){
+//            vertices[idx+2] = depthFrame.at<uint8_t>(i,j);
+    for(unsigned int i = 0; i < puntos_vert; i++){
+        for(unsigned int j = 0; j < puntos_horiz; j++){
+            vertices[idx+2] = depth[i][j];
+            idx += 3;
+        }
+    }
+}
 
 //Encuentra las profundidades máximas y mínimas
-void findExtremos(Mat &depthF,uint8_t &maximo, uint8_t &minimo){
+void findExtremos(){
 	maximo = 0;
 	minimo = 255;
 	
-	for(int i = 0; i < depthF.rows; i++){
-		for(int j = 0; j < depthF.cols; j++){
-			uint8_t value = depthF.at<uint8_t>(i,j);
-			//           cout<<int(value)<<' ';
+	for(int i = 0; i < h; i++){
+		for(int j = 0; j < w; j++){
+			uint8_t value = (unsigned int) depth[i][j];
 			if(value > maximo)
 				maximo = value;
 			if(value < minimo)
@@ -455,14 +516,16 @@ void findExtremos(Mat &depthF,uint8_t &maximo, uint8_t &minimo){
 
 //Obtiene los datos y genera una malla
 void runOpenCV(){
-    device.getVideo(rgbMat);
-    device.getDepth(depthMat);
-    depthMat.convertTo(depthFrame, CV_8UC1, 255.0/2048.0);
+    //device.getVideo(rgbMat);
+    //device.getDepth(depthMat);
+    //depthMat.convertTo(depthFrame, CV_8UC1, 255.0/2048.0);
+    device.getDepth(depth);
+    
 
-    generarMalla();
+//    std::cerr<<"Debug"; 
+    //actualizarMalla();
 
-	//cv::imshow("rgb", rgbMat);
-	//cv::imshow("depth",depthFrame);
+	//cv::imshow("rgb", rgbMat); cv::imshow("depth",depthFrame);
 }
 
 
@@ -473,9 +536,14 @@ int main(int argc, char **argv) {
     initialize();
 	//namedWindow("rgb",CV_WINDOW_AUTOSIZE);
 	//namedWindow("depth",CV_WINDOW_AUTOSIZE);
-    device.startVideo();
+    //device.startVideo();
     device.startDepth();
-   
+    
+    device.getDepth(depth); //carga por primera vez la profundidad
+    
+    //Obtiene los extremos para interpolar el color segun profundidad
+    findExtremos();
+    generarMalla(); //crea la estructura de la malla   
     glutMainLoop();
     
     device.stopVideo();
