@@ -3,12 +3,8 @@
 
 #include <libfreenect.hpp>
 #include <vector>
-//#include <cv.h>
-//#include <cxcore.h>
-//#include <highgui.h>
 #include "Mutex.cpp"
 
-//using namespace cv;
 using namespace std;
 class MyFreenectDevice : public Freenect::FreenectDevice {
 
@@ -18,9 +14,6 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
     std::vector<uint16_t> m_buffer_depth;
     std::vector<uint8_t> m_buffer_video;
     //std::vector<uint16_t> m_gamma;
-    //Mat depthMat;
-    //Mat rgbMat;
-    //Mat ownMat;
     Mutex m_rgb_mutex;
     Mutex m_depth_mutex;
     bool m_new_rgb_frame;
@@ -33,9 +26,6 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
             //m_buffer_depth(FREENECT_DEPTH_11BIT), 
             m_buffer_video(freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB).bytes), 
             //m_gamma(2048), 
-            //depthMat(Size(640,480),CV_16UC1), 
-            //rgbMat(Size(640,480),CV_8UC3,Scalar(0)), 
-            //ownMat(Size(640,480),CV_8UC3,Scalar(0)),
             m_new_rgb_frame(false), m_new_depth_frame(false){
         /*for( unsigned int i = 0 ; i < 2048 ; i++) {
             float v = i/2048.0;
@@ -58,7 +48,6 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
         m_rgb_mutex.lock();
         uint8_t* rgb = static_cast<uint8_t*>(_rgb);
         std::copy(rgb, rgb+getVideoBufferSize(), m_buffer_video.begin());
-        //rgbMat.data = rgb;
         m_new_rgb_frame = true;
         m_rgb_mutex.unlock();
     }
@@ -126,11 +115,9 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
     }
 
 
-    //bool getVideo(Mat& output) {
     bool getVideo(std::vector<uint8_t> &buffer) {
         m_rgb_mutex.lock();
         if(m_new_rgb_frame) {
-            //cv::cvtColor(rgbMat, output, CV_RGB2BGR);
             buffer.swap(m_buffer_video);
             m_new_rgb_frame = false;
             m_rgb_mutex.unlock();
@@ -141,12 +128,9 @@ class MyFreenectDevice : public Freenect::FreenectDevice {
         }
     }
 
-    //bool getDepth(Mat& output) {
     bool getDepth(double depth[h][w]) {
         m_depth_mutex.lock();
         if(m_new_depth_frame) {
-            //this->depthMat.copyTo(output);
-            //
             //Codigo de lucas, cristian y emma
             for(unsigned int i=0; i<this->h; ++i) {
                 for(unsigned int j=0; j<this->w; ++j) {
