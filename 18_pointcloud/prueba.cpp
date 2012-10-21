@@ -2,6 +2,8 @@
 
 #include <GL/glut.h>
 #include <iostream>
+#include <ctime>
+#include <cstdlib>
 //----------------VARIABLES GLOBALES Y DEFAULTS---------------------------------
 const unsigned int puntos_horiz = 3;
 const unsigned int puntos_vert = 3;
@@ -19,7 +21,7 @@ static const unsigned int cant_indices = cant_triangulos*3;
 static const unsigned int cant_vertices = puntos_horiz*puntos_vert*3;
 
 GLint * vertices = new GLint[cant_vertices];  //array de Vertices
-GLubyte * indices = new GLubyte[cant_indices]; //indices de los triangulos
+GLuint * indices = new GLuint[cant_indices]; //indices de los triangulos
 std::vector<unsigned int> triangulos; //valores de los vertices de cada triangulo
 
 
@@ -33,6 +35,7 @@ void generarMalla(){
 			vertices[idx] = j; 
             vertices[idx+1] = i;
             vertices[idx+2] = depth[i][j];
+            std::cout<<vertices[idx]<<' '<<vertices[idx+1]<<' '<<vertices[idx+2]<<'\n';
             idx += 3;
         }
     }
@@ -77,13 +80,25 @@ void generarMalla(){
 			i++; //llego al borde, me salto uno
     }
 
+    std::cout<<"Indices:\n";
+    for (unsigned int i = 0; i < cant_indices; i++) {
+        std::cerr<<indices[i]<<' ';
+    }
+    std::cout<<'\n';
+
     std::cout<<"Crear vector de triangulos\n";
 
-    int salto = 0;
+    unsigned int salto = 1;
     //genera el vector que se usara para dibujar
     for (unsigned int i = 0; i < cant_indices; i++, salto++) {
-        std::cerr<<(unsigned int) vertices[indices[i] ]<<' ';        
-        triangulos.push_back(vertices[indices[i] ]);
+        unsigned int indice_triangulo = indices[i];
+        int xi = vertices[indice_triangulo*3];
+        int yi = vertices[indice_triangulo*3+1];
+        int zi = vertices[indice_triangulo*3+2];
+        std::cerr<< xi<<' '<<yi<<' '<<zi<<'\n';
+        triangulos.push_back(xi);
+        triangulos.push_back(yi);
+        triangulos.push_back(zi);
         
         if (salto % 3 == 0) std::cout<<'\n';
     }
@@ -91,6 +106,7 @@ void generarMalla(){
 }
 
 int main(){
+    srand(time(0));
     for(unsigned int i = 0; i < puntos_vert; i++){
         for(unsigned int j = 0; j < puntos_horiz; j++){
             depth[i][j] = rand() % 1000+1000;

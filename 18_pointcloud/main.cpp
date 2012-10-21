@@ -464,15 +464,16 @@ void generarMalla(){
 			i++; //llego al borde, me salto uno
     }
 
-    int salto = 0;
     //genera el vector que se usara para dibujar
-    for (unsigned int i = 0; i < cant_indices; i++, salto++) {
-        triangulos[i] = vertices[indices[i] ];
-        
-        std::cout<<(unsigned int) indices[i]<<' ';        if (salto % 3 == 0) std::cout<<'\n';
+    for (unsigned int i = 0; i < cant_indices; i++) {
+        unsigned int indice_triangulo = indices[i];
+        int xi = vertices[indice_triangulo*3];
+        int yi = vertices[indice_triangulo*3+1];
+        int zi = vertices[indice_triangulo*3+2];
+        triangulos.push_back(xi);
+        triangulos.push_back(yi);
+        triangulos.push_back(zi);
     }
-
-
 }
 
 //Actualiza la profundidad, que es lo unico que cambio entre iteraciones sucesivas
@@ -484,6 +485,7 @@ void actualizarMalla() {
             idx += 3;
         }
     }
+    std::cout<<"Ver que debe actualizar triangulos tambien";
 }
 
 //Encuentra las profundidades máximas y mínimas
@@ -523,7 +525,7 @@ int main(int argc, char **argv) {
     generarMalla(); //crea la estructura de la malla   
 
     std::cout<<"Iniciando bucle principal\n";
-    //glutMainLoop();
+    glutMainLoop();
     
     //device.stopVideo();
     device.stopDepth();
